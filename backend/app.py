@@ -2,6 +2,11 @@ import pandas as pd
 from sklearn.preprocessing import StandardScaler
 import os
 import joblib
+from flask import Flask, request, jsonify
+from flask_cors import CORS
+
+app = Flask(__name__)
+CORS(app)
 
 
 def predict_heart_attack_risk(new_df):
@@ -20,8 +25,11 @@ def predict_heart_attack_risk(new_df):
 # Cargar modelo y scaler
 # ============================
 
-loaded_model = joblib.load("modelo_logistico_heart.pkl")
-loaded_scaler = joblib.load("scaler.pkl")
+model_path = os.path.join(os.path.dirname(__file__), "modelo_logistico_heart.pkl")
+scaler_path = os.path.join(os.path.dirname(__file__), "scaler.pkl")
+
+loaded_model = joblib.load(model_path)
+loaded_scaler = joblib.load(scaler_path)
 
 # Columnas a eliminar (deben ser las mismas que en el entrenamiento)
 cols_a_eliminar = ["Patient ID", "Country", "Continent", "Hemisphere", "Income"]
@@ -104,6 +112,31 @@ GLOBAL_TRAINING_COLUMNS = pd.Index(
     dtype="object",
 )
 
+FACTOR_TRANSLATIONS = {
+    "Age": "Edad",
+    "Cholesterol": "Colesterol",
+    "Heart Rate": "Ritmo Cardíaco",
+    "Diabetes": "Diabetes",
+    "Family History": "Historial Familiar",
+    "Smoking": "Fumar",
+    "Obesity": "Obesidad",
+    "Alcohol Consumption": "Consumo de Alcohol",
+    "Exercise Hours Per Week": "Horas de Ejercicio por Semana",
+    "Previous Heart Problems": "Problemas Cardíacos Previos",
+    "Medication Use": "Uso de Medicamentos",
+    "Stress Level": "Nivel de Estrés",
+    "Sedentary Hours Per Day": "Horas Sedentarias por Día",
+    "BMI": "IMC",
+    "Triglycerides": "Triglicéridos",
+    "Physical Activity Days Per Week": "Días de Actividad Física por Semana",
+    "Sleep Hours Per Day": "Horas de Sueño por Día",
+    "BP_Systolic": "Presión Arterial Sistólica",
+    "BP_Diastolic": "Presión Arterial Diastólica",
+    "Sex_Male": "Sexo Masculino",
+    "Diet_Healthy": "Dieta Saludable",
+    "Diet_Unhealthy": "Dieta No Saludable",
+}
+
 
 def split_bp(value):
     try:
@@ -148,85 +181,76 @@ def preprocess_new_data(new_df):
 # Ejemplo de uso de la función de predicción
 # ============================
 
-if __name__ == "__main__":
-    # Crear un DataFrame con nuevos datos para la predicción
-    # Asegúrate de que las columnas coincidan con las del entrenamiento original
-    # (excepto 'Heart Attack Risk' y 'Blood Pressure' que se procesan)
-    new_data = {
-        "Patient ID": [1001],
-        "Age": 80,
-        "Sex": "female",
-        "Cholesterol": 220,
-        "Blood Pressure": "140/90",
-        "Heart Rate": 75,
-        "Diabetes": "No",
-        "Family History": "Yes",
-        "Smoking": "Yes",
-        "Obesity": "No",
-        "Alcohol Consumption": "Moderate",
-        "Exercise Hours/Week": 3.5,
-        "Diet": "Average",
-        "Previous Heart Problems": "No",
-        "Medication Use": "Yes",
-        "Stress Level": 7,
-        "Sedentary Hours/Day": 6,
-        "Income": 50000,
-        "BMI": 28.5,
-        "Triglycerides": 180,
-        "Physical Activity Days/Week": 4,
-        "Sleep Hours/Day": 7,
-        "Country": "USA",
-        "Continent": "North America",
-        "Hemisphere": "Northern",
-        "Healthcare Expenses": 3000,
-        "Medical History": "None",
-        "Dietary Habits": "Healthy",
-        "Ethnicity": "Caucasian",
-        "Education Level": "University",
-        "Socioeconomic Status": "Middle",
-        "Insurance Provider": "Blue Cross",
-        "Heart Attack Risk": 0,  # Este valor no se usa para la predicción, pero se incluye para mantener la estructura
-    }
-    new_df = pd.DataFrame([new_data])
 
-    # Eliminar columnas prohibidas del nuevo DataFrame
-    new_df = new_df.drop(columns=cols_a_eliminar)
-
-    # Realizar la predicción
+@app.route("/predict", methods=["POST"])
+def predict_endpoint():
     try:
+        # Obtener datos del request JSON (compatible con Axios)
+        patient_data = request.get_json()
+        if not patient_data:
+            return jsonify({"error": "No se proporcionaron datos JSON"}), 400
+
+        # Convertir datos a DataFrame de pandas
+        new_df = pd.DataFrame([patient_data])
+
+        # Eliminar columnas prohibidas (ignorar si no existen)
+        new_df = new_df.drop(columns=cols_a_eliminar, errors="ignore")
+
+        # Realizar predicción de probabilidades
         probabilities = predict_heart_attack_risk(new_df)
         prob_bajo_riesgo = probabilities[0] * 100
         prob_alto_riesgo = probabilities[1] * 100
 
-        print(
-            f"\nProbabilidad de Bajo Riesgo de Ataque al Corazón: {prob_bajo_riesgo:.2f}%"
-        )
-        print(
-            f"Probabilidad de Alto Riesgo de Ataque al Corazón: {prob_alto_riesgo:.2f}%"
+        # Determinar texto de predicción
+        prediccion_texto = (
+            "Alto riesgo de ataque al corazón."
+            if prob_alto_riesgo > prob_bajo_riesgo
+            else "Bajo riesgo de ataque al corazón."
         )
 
-        if prob_alto_riesgo > prob_bajo_riesgo:
-            print("Predicción: Alto riesgo de ataque al corazón.")
-        else:
-            print("Predicción: Bajo riesgo de ataque al corazón.")
-
-        # Análisis de la importancia de las características
-        print("\n--- Factores más influyentes en la predicción ---")
+        # Obtener los 3 factores más influyentes (coeficientes del modelo)
         coeficientes = pd.Series(loaded_model.coef_[0], index=GLOBAL_TRAINING_COLUMNS)
 
-        # Características que aumentan el riesgo de ataque al corazón (coeficientes positivos)
-        top_riesgo = coeficientes.nlargest(2)
-        print("\nTop  factores que aumentan el riesgo de ataque al corazón:")
-        for feature, coef in top_riesgo.items():
-            print(f"- {feature}: {coef:.4f}")
+        # Traducir los nombres de los factores
+        top_aumenta_riesgo_traducido = {FACTOR_TRANSLATIONS.get(k, k): v for k, v in coeficientes.nlargest(2).to_dict().items()}
+        top_disminuye_riesgo_traducido = {FACTOR_TRANSLATIONS.get(k, k): v for k, v in coeficientes.nsmallest(2).to_dict().items()}
 
-        # Características que disminuyen el riesgo de ataque al corazón (coeficientes negativos)
-        top_bajo_riesgo = coeficientes.nsmallest(2)
-        print("\nTop  factores que disminuyen el riesgo de ataque al corazón:")
-        for feature, coef in top_bajo_riesgo.items():
-            print(f"- {feature}: {coef:.4f}")
+        # Preparar respuesta JSON para el frontend
+        response = {
+            "probabilidad_bajo_riesgo": round(prob_bajo_riesgo, 2),
+            "probabilidad_alto_riesgo": round(prob_alto_riesgo, 2),
+            "prediccion_texto": prediccion_texto,
+            "top_factores_aumentan_riesgo": top_aumenta_riesgo_traducido,
+            "top_factores_disminuyen_riesgo": top_disminuye_riesgo_traducido,
+        }
+
+        return jsonify(response), 200
 
     except TypeError as e:
-        print(f"Error: {e}")
+        return jsonify({"error": f"Error de tipo: {str(e)}"}), 400
+    except KeyError as e:
+        return jsonify({"error": f"Columna faltante: {str(e)}"}), 400
     except Exception as e:
-        print(f"Ocurrió un error inesperado: {e}")
+        return jsonify({"error": f"Error inesperado: {str(e)}"}), 500
+
+
+@app.route("/feature_importances", methods=["GET"])
+def get_feature_importances():
+    try:
+        coeficientes = pd.Series(loaded_model.coef_[0], index=GLOBAL_TRAINING_COLUMNS)
+        feature_importances = coeficientes.to_dict()
+        return jsonify(feature_importances), 200
+    except Exception as e:
+        return (
+            jsonify(
+                {
+                    "error": f"Error al obtener la importancia de las características: {str(e)}"
+                }
+            ),
+            500,
+        )
+
+
+if __name__ == "__main__":
+    print("Iniciando servidor Flask en http://localhost:5000")
+    app.run(debug=True, port=5000)
