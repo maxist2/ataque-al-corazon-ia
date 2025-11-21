@@ -1,10 +1,10 @@
 # Proyecto Ataque al Corazón IA
 
-<<<<<<< HEAD
+
 Este proyecto implementa un sistema para predecir el riesgo de ataque al corazón utilizando inteligencia artificial. Consta de un backend desarrollado en Python para el procesamiento de datos y modelos de IA, y un frontend interactivo para la visualización y entrada de datos.
 =======
 Este proyecto consta de un backend desarrollado en Python y un frontend desarrollado con tecnologías web modernas.
->>>>>>> 1a99c786980a933019ca730c290a6d104549e8e2
+
 
 ## Dependencias Comunes
 
