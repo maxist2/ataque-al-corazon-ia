@@ -24,7 +24,7 @@ h4 {
 }
 
 .input-group-text {
-    min-width: 150px;
+    min-width: 100px;
     /* Ancho mínimo para las etiquetas de los InputGroup */
 }
 

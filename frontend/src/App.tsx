@@ -527,7 +527,7 @@ function App() {
             </Row>
             <h4 className="mt-4">Hábitos y estilo de vida</h4>
             <Row>
-              <Col style={{ minWidth: "fit-content" }} xs={3}>
+              <Col style={{ minWidth: "fit-content" }} xs={5}>
                 <Row>
                   <Form.Group as={Col} controlId="form-group-smoking">
                     <InputGroup className="mb-3">
@@ -747,7 +747,7 @@ function App() {
           {predictionResult && (
             <Row className="mt-4">
               <Col xs={6}>
-                <Card>
+                <Card className="h-100 ">
                   <Card.Header>Resultados de la Predicción:</Card.Header>
                   <Card.Body>
                     <p>
@@ -766,7 +766,7 @@ function App() {
                 </Card>
               </Col>
               <Col xs={3}>
-                <Card className="h-100">
+                <Card className="h-100 bg-danger text-white">
                   <Card.Header>Factores que Aumentan el Riesgo:</Card.Header>
                   <Card.Body className="justify-content-center align-items-center d-flex fs-5">
                     <ul>
@@ -782,7 +782,7 @@ function App() {
                 </Card>
               </Col>
               <Col>
-                <Card className="h-100">
+                <Card className="h-100 bg-success text-white">
                   <Card.Header>Factores que Disminuyen el Riesgo:</Card.Header>
                   <Card.Body className="justify-content-center align-items-center d-flex fs-5">
                     <ul>
